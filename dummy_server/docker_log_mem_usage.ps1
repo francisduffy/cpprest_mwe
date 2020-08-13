@@ -5,5 +5,4 @@
 while ($true) {
     $mem_usage = docker stats --no-stream --format "{{.MemUsage}}" mwe_test
     Write-Output "$(Get-TimeStamp),$mem_usage" | Out-file docker_mem.log -append
-    # start-sleep -seconds 1
 }

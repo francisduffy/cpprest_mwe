@@ -4,7 +4,8 @@ FROM mwe_service_debug:${mwe_service_version}
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y valgrind \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && mkdir /app/output
 
 COPY run_module_valgrind.sh /run_module_valgrind.sh
 RUN dos2unix /run_module_valgrind.sh
