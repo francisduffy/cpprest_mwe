@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
     
     // Can switch host with command line argument
     string_t hostname = _XPLATSTR("localhost");
-    if (argc == 2) {
+    if (argc >= 2) {
         hostname = argv[1];
     }
     
