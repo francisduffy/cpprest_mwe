@@ -165,9 +165,15 @@ int main(int argc, char *argv[])
     if (argc == 2) {
         hostname = argv[1];
     }
+    
+    // If second command line variable is provided, assume port. No checks.
+    string_t port("5003");
+    if (argc == 3) {
+        port = argv[2];
+    }
 
     ostringstream_t oss;
-    oss << _XPLATSTR("http://") << hostname << _XPLATSTR(":5003");
+    oss << _XPLATSTR("http://") << hostname << _XPLATSTR(":") << port;
     string_t address = oss.str();
     MweHandler mweHandler(address);
 

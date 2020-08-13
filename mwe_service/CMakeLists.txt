@@ -39,6 +39,7 @@ target_link_libraries(mwe_service crypto)
 target_link_libraries(mwe_service cpprest)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
+include_directories(${Boost_INCLUDE_DIRS})
 
 include(InstallRequiredSystemLibraries)
 set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
