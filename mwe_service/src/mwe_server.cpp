@@ -116,60 +116,13 @@ private:
             // Fetch data from dataUri
             ucout << _XPLATSTR("Start requesting data from: ") << dataUri << endl;
 
-            http_client_config config;
-            config.set_timeout(std::chrono::seconds(600));
-            http_client client(dataUri, config);
-
-            http_request request(methods::GET);
-
-            http_headers headers;
-            headers.add(_XPLATSTR("Accept"), _XPLATSTR("application/json"));
-            request.headers() = headers;
-
-            http_response response;
-            try {
-                response = client.request(request).get();
-            } catch (exception& e) {
-                cout << "Caught unexpected exception in Retriever: " << e.what() << "." << endl;
-                throw;
-            }
-
-            // If request was successful.
-            status_code code = response.status_code();
-            if (code != status_codes::OK) {
-                cout << "Status code is not 200." << endl;
-                throw;
-            }
-
-            response.content_ready().wait();
-            cout << "Request was successful." << endl;
-            pplx::task<http_response> result = pplx::task_from_result(response);
-
-            pplx::task<web::json::value> promise = result.then([dataUri](web::http::http_response response) {
-
-                utility::string_t result = response.extract_string().get();
-                ucout << _XPLATSTR("JsonRetriever got message of length ") << result.length() <<
-                    _XPLATSTR(" characters from uri ") << dataUri << "." << std::endl;
-
-                std::error_code errorCode;
-                web::json::value val = web::json::value::parse(result, errorCode);
-                if (errorCode) {
-                    // Just log if error.
-                    std::cout << "JSON parsing failed with error code " << errorCode << "." << std::endl;
-                }
-
-                return pplx::task_from_result(val);
-
-                });
-
-
-            // Loop over all data. Don't check types here.
-            web::json::value resultBody = promise.get();
             map<pair<string_t, string_t>, double> data;
-            for (auto datum : resultBody.as_array()) {
-                string_t date = datum.at(_XPLATSTR("date")).as_string();
-                string_t id = datum.at(_XPLATSTR("id")).as_string();
-                double value = datum.at(_XPLATSTR("value")).as_number().to_double();
+            for (size_t i = 0; i < 5000; ++i) {
+                string_t date = _XPLATSTR("2020-08-11");
+                ostringstream_t oss;
+                oss << _XPLATSTR("xxxxx_") << i;
+                string_t id = oss.str();
+                double value = 1.5;
                 data[make_pair(date, id)] = value;
             }
 
