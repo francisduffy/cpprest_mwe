@@ -1,0 +1,15 @@
+bin
+Debug
+ipch
+obj
+build
+.dockerignore
+docker-compose.yml
+Dockerfile
+mwe_service.sln
+mwe_service.VC.db
+mwe_service.VC.VC.opendb
+mwe_service.vcxproj
+mwe_service.vcxproj.filters
+mwe_service.vcxproj.user
+.vs

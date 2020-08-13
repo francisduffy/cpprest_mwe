@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  mwe_service:
+    image: mwe_service_valgrind:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile-Valgrind

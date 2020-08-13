@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  mwe_service:
+    image: mwe_service:1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - cpprestsdk_version=2.10.15
+        - boost_version=1.72.0
+        - num_cores=4
