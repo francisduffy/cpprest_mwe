@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     }
     
     // If second command line variable is provided, assume port. No checks.
-    string_t port("5003");
+    string_t port(_XPLATSTR("5003"));
     if (argc == 3) {
         port = argv[2];
     }
