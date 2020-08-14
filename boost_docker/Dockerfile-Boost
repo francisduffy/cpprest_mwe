@@ -18,7 +18,7 @@ RUN wget http://downloads.sourceforge.net/project/boost/boost/${boost_version}/$
     && rm ${boost_dir}.tar.gz \
     && cd ${boost_dir} \
     && ./bootstrap.sh \
-    && ./b2 cxxflags=-fPIC --without-python -j ${num_cores} runtime-link=shared variant=${boost_variant} install \
+    && ./b2 --without-python -j ${num_cores} link=shared runtime-link=shared variant=${boost_variant} install \
     && cd .. \
     && rm -rf ${boost_dir} \
     && ldconfig
