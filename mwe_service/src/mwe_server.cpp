@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#include <SDKDDKVer.h>
+#endif
+
 #include <cpprest/http_client.h>
 #include <cpprest/http_listener.h>
 #include <cpprest/http_msg.h>
@@ -61,19 +65,17 @@ public:
 // Used below to handle incoming requests. Only POST is implemented.
 class MweHandler {
 public:
-    MweHandler(const utility::string_t& uri) {
+    MweHandler(const utility::string_t& uri) : listener_(uri) {
         
-        listener_ = std::make_shared<http_listener>(uri, config_);
-
         // add listener methods
-        listener_->support(methods::GET, bind(&MweHandler::handle_get, this, std::placeholders::_1));
-        listener_->support(methods::PUT, bind(&MweHandler::handle_put, this, std::placeholders::_1));
-        listener_->support(methods::POST, bind(&MweHandler::handle_post, this, std::placeholders::_1));
-        listener_->support(methods::DEL, bind(&MweHandler::handle_delete, this, std::placeholders::_1));
+        listener_.support(methods::GET, bind(&MweHandler::handle_get, this, std::placeholders::_1));
+        listener_.support(methods::PUT, bind(&MweHandler::handle_put, this, std::placeholders::_1));
+        listener_.support(methods::POST, bind(&MweHandler::handle_post, this, std::placeholders::_1));
+        listener_.support(methods::DEL, bind(&MweHandler::handle_delete, this, std::placeholders::_1));
     }
 
-    pplx::task<void> open() { return listener_->open(); }
-    pplx::task<void> close() { return listener_->close(); }
+    pplx::task<void> open() { return listener_.open(); }
+    pplx::task<void> close() { return listener_.close(); }
 
 private:
     void handle_get(web::http::http_request message) {
@@ -148,8 +150,7 @@ private:
         message.reply(status_codes::NotImplemented);
     }
 
-    std::shared_ptr<web::http::experimental::listener::http_listener> listener_;
-    web::http::experimental::listener::http_listener_config config_;
+    web::http::experimental::listener::http_listener listener_;
 };
 
 #ifdef _WIN32
