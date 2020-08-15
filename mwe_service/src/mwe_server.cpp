@@ -23,7 +23,7 @@ using web::http::status_codes;
 using web::http::method;
 using web::http::methods;
 using web::http::http_headers;
-using namespace web::http::experimental::listener;
+using web::http::experimental::listener::http_listener;
 using web::uri;
 
 using std::bind;
@@ -62,96 +62,60 @@ public:
     }
 };
 
-// Used below to handle incoming requests. Only POST is implemented.
-class MweHandler {
+class ContainerWrapper {
 public:
-    MweHandler(const utility::string_t& uri) : listener_(uri) {
-        
-        // add listener methods
-        listener_.support(methods::GET, bind(&MweHandler::handle_get, this, std::placeholders::_1));
-        listener_.support(methods::PUT, bind(&MweHandler::handle_put, this, std::placeholders::_1));
-        listener_.support(methods::POST, bind(&MweHandler::handle_post, this, std::placeholders::_1));
-        listener_.support(methods::DEL, bind(&MweHandler::handle_delete, this, std::placeholders::_1));
+    ~ContainerWrapper() {
+        cout << "Destructor: data map is of size " << data.size() << endl;
     }
 
-    pplx::task<void> open() { return listener_.open(); }
-    pplx::task<void> close() { return listener_.close(); }
-
-private:
-    void handle_get(web::http::http_request message) {
-        message.reply(status_codes::NotImplemented);
-    }
-
-    void handle_put(web::http::http_request message) {
-        message.reply(status_codes::NotImplemented);
-    }
-
-    void handle_post(web::http::http_request message) {
-        try {
-
-            // Try to extract message body.
-            web::json::value body;
-            try {
-                body = message.extract_json().get();
-            } catch (exception& e) {
-                cout << "Post Exception when extracting JSON from http_request " << e.what() << endl;
-                message.reply(status_codes::BadRequest);
-                return;
-            }
-
-            // Get dataUri from message body
-            string_t dataUri;
-            if (body.has_field(_XPLATSTR("dataUri"))) {
-                const web::json::value& s = body.at(_XPLATSTR("dataUri"));
-                if (s.is_string()) {
-                    dataUri = s.as_string();
-                }
-            }
-
-            // Check dataUri is not empty
-            if (dataUri.empty()) {
-                cout << "Post body needs a 'dataUri' field." << endl;
-                message.reply(status_codes::BadRequest);
-                return;
-            }
-
-            // Fetch data from dataUri
-            ucout << _XPLATSTR("Start requesting data from: ") << dataUri << endl;
-
-            map<pair<string_t, string_t>, double> data;
-            for (size_t i = 0; i < 5000; ++i) {
-                string_t date = _XPLATSTR("2020-08-11");
-                ostringstream_t oss;
-                oss << _XPLATSTR("xxxxx_") << i;
-                string_t id = oss.str();
-                double value = 1.5;
-                data[make_pair(date, id)] = value;
-            }
-
-            cout << "Data map is now of size " << data.size() << endl;
-            ucout << _XPLATSTR("Finished requesting data from: ") << dataUri << endl;
-
-            unsigned pause = 3;
-            cout << "Sleep for " << pause << " seconds." << endl;
-            std::this_thread::sleep_for(std::chrono::seconds(pause));
-
-            message.reply(status_codes::OK);
-
-        } catch (exception& e) {
-            cerr << "Post Exception " << e.what() << endl;
-            throw;
-        } catch (...) {
-            cerr << "Post Exception (unhandled)" << endl;
-            throw;
-        }
-    }
-
-    void handle_delete(web::http::http_request message) {
-        message.reply(status_codes::NotImplemented);
-    }
-
-    web::http::experimental::listener::http_listener listener_;
+    map<pair<string_t, string_t>, double> data;
 };
+
+void handle_get(web::http::http_request message) {
+    message.reply(status_codes::NotImplemented);
+}
+
+void handle_put(web::http::http_request message) {
+    message.reply(status_codes::NotImplemented);
+}
+
+void handle_post(web::http::http_request message) {
+
+    try {
+
+        // Fetch data from dataUri
+        ucout << _XPLATSTR("Start adding data.") << endl;
+
+        ContainerWrapper cw;
+        for (size_t i = 0; i < 5000; ++i) {
+            string_t date = _XPLATSTR("2020-08-11");
+            ostringstream_t oss;
+            oss << _XPLATSTR("xxxxx_") << i;
+            string_t id = oss.str();
+            double value = 1.5;
+            cw.data[make_pair(date, id)] = value;
+        }
+
+        cout << "Data map is now of size " << cw.data.size() << endl;
+
+        unsigned pause = 3;
+        cout << "Sleep for " << pause << " seconds." << endl;
+        std::this_thread::sleep_for(std::chrono::seconds(pause));
+
+        message.reply(status_codes::OK);
+
+    } catch (exception& e) {
+        cerr << "Post Exception " << e.what() << endl;
+        throw;
+    } catch (...) {
+        cerr << "Post Exception (unhandled)" << endl;
+        throw;
+    }
+}
+
+void handle_delete(web::http::http_request message) {
+    message.reply(status_codes::NotImplemented);
+}
 
 #ifdef _WIN32
 int wmain(int argc, wchar_t *argv[])
@@ -176,14 +140,20 @@ int main(int argc, char *argv[])
     ostringstream_t oss;
     oss << _XPLATSTR("http://") << hostname << _XPLATSTR(":") << port;
     string_t address = oss.str();
-    MweHandler mweHandler(address);
+
+    // Create the listener and add the supported methods.
+    http_listener listener(address);
+    listener.support(methods::GET, handle_get);
+    listener.support(methods::PUT, handle_put);
+    listener.support(methods::POST, handle_post);
+    listener.support(methods::DEL, handle_delete);
 
     try {
-        mweHandler.open().wait();
+        listener.open().wait();
         ucout << _XPLATSTR("Listening for requests at ") << address << std::endl;
         cout << "Press CTRL+C to exit." << std::endl;
         InterruptHandler::waitForUserInterrupt();
-        mweHandler.close().wait();
+        listener.close().wait();
     } catch (const std::exception& e) {
         cerr << "Hit an error." << std::endl;
         cerr << "Error message: " << e.what() << std::endl;
