@@ -5,6 +5,7 @@
 #include <cpprest/http_client.h>
 #include <cpprest/http_listener.h>
 #include <cpprest/http_msg.h>
+#include <pplx/threadpool.h>
 
 #include <condition_variable>
 #include <iostream>
@@ -123,6 +124,12 @@ int wmain(int argc, wchar_t *argv[])
 int main(int argc, char *argv[])
 #endif
 {
+
+#if !defined(_WIN32) || defined(CPPREST_FORCE_PPLX)
+    // Default number of threads on non-Windows build is 40. Override it here.
+    crossplat::threadpool::initialize_with_threads(6);
+#endif
+    
     InterruptHandler::hookSIGINT();
     
     // Can switch host with command line argument
