@@ -84,20 +84,94 @@ void handle_post(web::http::http_request message) {
 
     try {
 
-        // Fetch data from dataUri
-        ucout << _XPLATSTR("Start adding data.") << endl;
-
-        ContainerWrapper cw;
-        for (size_t i = 0; i < 5000; ++i) {
-            string_t date = _XPLATSTR("2020-08-11");
-            ostringstream_t oss;
-            oss << _XPLATSTR("xxxxx_") << i;
-            string_t id = oss.str();
-            double value = 1.5;
-            cw.data[make_pair(date, id)] = value;
+        // Try to extract message body.
+        web::json::value body;
+        try {
+            body = message.extract_json().get();
+        } catch (exception& e) {
+            cout << "Post Exception when extracting JSON from http_request " << e.what() << endl;
+            message.reply(status_codes::BadRequest);
+            return;
         }
 
-        cout << "Data map is now of size " << cw.data.size() << endl;
+        // Get dataUri from message body
+        string_t dataUri;
+        if (body.has_field(_XPLATSTR("dataUri"))) {
+            const web::json::value& s = body.at(_XPLATSTR("dataUri"));
+            if (s.is_string()) {
+                dataUri = s.as_string();
+            }
+        }
+
+        // Check dataUri is not empty
+        if (dataUri.empty()) {
+            cout << "Post body needs a 'dataUri' field." << endl;
+            message.reply(status_codes::BadRequest);
+            return;
+        }
+
+        // Fetch data from dataUri
+        ucout << _XPLATSTR("Start requesting data from: ") << dataUri << endl;
+
+        http_client_config config;
+        config.set_timeout(std::chrono::seconds(600));
+        http_client client(dataUri, config);
+
+        http_request request(methods::GET);
+
+        http_headers headers;
+        headers.add(_XPLATSTR("Accept"), _XPLATSTR("application/json"));
+        request.headers() = headers;
+
+        http_response response;
+        try {
+            response = client.request(request).get();
+        } catch (exception& e) {
+            cout << "Caught unexpected exception in Retriever: " << e.what() << "." << endl;
+            throw;
+        }
+
+        // If request was successful.
+        status_code code = response.status_code();
+        if (code != status_codes::OK) {
+            cout << "Status code is not 200." << endl;
+            throw;
+        }
+
+        response.content_ready().wait();
+        cout << "Request was successful." << endl;
+        pplx::task<http_response> result = pplx::task_from_result(response);
+
+        pplx::task<web::json::value> promise = result.then([dataUri](web::http::http_response response) {
+
+            utility::string_t result = response.extract_string().get();
+            ucout << _XPLATSTR("JsonRetriever got message of length ") << result.length() <<
+                _XPLATSTR(" characters from uri ") << dataUri << "." << std::endl;
+
+            std::error_code errorCode;
+            web::json::value val = web::json::value::parse(result, errorCode);
+            if (errorCode) {
+                // Just log if error.
+                std::cout << "JSON parsing failed with error code " << errorCode << "." << std::endl;
+            }
+
+            return pplx::task_from_result(val);
+
+        });
+
+
+        // Loop over all data. Don't check types here.
+        web::json::value resultBody = promise.get();
+        map<pair<string_t, string_t>, double> data;
+        for (auto datum : resultBody.as_array()) {
+            string_t date = datum.at(_XPLATSTR("date")).as_string();
+            string_t id = datum.at(_XPLATSTR("id")).as_string();
+            double value = datum.at(_XPLATSTR("value")).as_number().to_double();
+            data[make_pair(date, id)] = value;
+        }
+
+        cout << "Data map is now of size " << data.size() << endl;
+        ucout << _XPLATSTR("Finished requesting data from: ") << dataUri << endl;
 
         unsigned pause = 3;
         cout << "Sleep for " << pause << " seconds." << endl;
@@ -127,7 +201,7 @@ int main(int argc, char *argv[])
 
 #if !defined(_WIN32) || defined(CPPREST_FORCE_PPLX)
     // Default number of threads on non-Windows build is 40. Override it here.
-    crossplat::threadpool::initialize_with_threads(6);
+    crossplat::threadpool::initialize_with_threads(2);
 #endif
     
     InterruptHandler::hookSIGINT();

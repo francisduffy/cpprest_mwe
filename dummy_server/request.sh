@@ -1,1 +1,1 @@
-for i in {1..50}; do curl -X POST http://localhost:5003 --header "Content-Type:application/json" --data '{"dataUri":"some_uri"}'; done
+for i in {1..50}; do curl -X POST http://localhost:5003 --header "Content-Type:application/json" --data '{"dataUri":"http://host.docker.internal:8080/file/data.json"}'; done
