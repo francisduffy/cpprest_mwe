@@ -1,31 +1,10 @@
-#ifdef _WIN32
-#include <SDKDDKVer.h>
-#endif
-
-#include <cpprest/http_client.h>
-#include <cpprest/http_listener.h>
-#include <cpprest/http_msg.h>
-#include <pplx/threadpool.h>
-
-#include <condition_variable>
+#include <httplib.h>
 #include <iostream>
-#include <mutex>
-#include <signal.h>
-#include <thread>
+#include <sstream>
 
-using utility::ostringstream_t;
-using utility::string_t;
-using web::http::client::http_client_config;
-using web::http::client::http_client;
-using web::http::http_request;
-using web::http::http_response;
-using web::http::status_code;
-using web::http::status_codes;
-using web::http::method;
-using web::http::methods;
-using web::http::http_headers;
-using web::http::experimental::listener::http_listener;
-using web::uri;
+using httplib::Request;
+using httplib::Response;
+using httplib::Server;
 
 using std::bind;
 using std::cerr;
@@ -40,59 +19,34 @@ using std::string;
 using std::unique_lock;
 using std::vector;
 
-static condition_variable _condition;
-static mutex _mutex;
-
-// Used below to close server when ctrl+c is sent.
-class InterruptHandler {
-public:
-    static void hookSIGINT() {
-        signal(SIGINT, handleUserInterrupt);
-    }
-
-    static void handleUserInterrupt(int signal) {
-        if (signal == SIGINT) {
-            _condition.notify_one();
-        }
-    }
-
-    static void waitForUserInterrupt() {
-        unique_lock<mutex> lock{ _mutex };
-        _condition.wait(lock);
-        lock.unlock();
-    }
-};
-
 class ContainerWrapper {
 public:
     ~ContainerWrapper() {
         cout << "Destructor: data map is of size " << data.size() << endl;
     }
 
-    map<pair<string_t, string_t>, double> data;
+    map<pair<string, string>, double> data;
 };
 
-void handle_get(web::http::http_request message) {
-    message.reply(status_codes::NotImplemented);
+void handle_get(const Request& req, Response& res) {
+    res.status = 501;
 }
 
-void handle_put(web::http::http_request message) {
-    message.reply(status_codes::NotImplemented);
+void handle_put(const Request& req, Response& res) {
+    res.status = 501;
 }
 
-void handle_post(web::http::http_request message) {
+void handle_post(const Request& req, Response& res) {
 
     try {
 
         // Fetch data from dataUri
-        ucout << _XPLATSTR("Start adding data.") << endl;
+       cout << "Start adding data." << endl;
 
         ContainerWrapper cw;
         for (size_t i = 0; i < 5000; ++i) {
-            string_t date = _XPLATSTR("2020-08-11");
-            ostringstream_t oss;
-            oss << _XPLATSTR("xxxxx_") << i;
-            string_t id = oss.str();
+            string date = "2020-08-11";
+            string id = "xxxxx_" + std::to_string(i);
             double value = 1.5;
             cw.data[make_pair(date, id)] = value;
         }
@@ -103,7 +57,7 @@ void handle_post(web::http::http_request message) {
         cout << "Sleep for " << pause << " seconds." << endl;
         std::this_thread::sleep_for(std::chrono::seconds(pause));
 
-        message.reply(status_codes::OK);
+        res.status = 200;
 
     } catch (exception& e) {
         cerr << "Post Exception " << e.what() << endl;
@@ -114,59 +68,54 @@ void handle_post(web::http::http_request message) {
     }
 }
 
-void handle_delete(web::http::http_request message) {
-    message.reply(status_codes::NotImplemented);
+void handle_delete(const Request& req, Response& res) {
+    res.status = 501;
 }
 
-#ifdef _WIN32
-int wmain(int argc, wchar_t *argv[])
-#else
 int main(int argc, char *argv[])
-#endif
 {
-
-#if !defined(_WIN32) || defined(CPPREST_FORCE_PPLX)
-    // Default number of threads on non-Windows build is 40. Override it here.
-    crossplat::threadpool::initialize_with_threads(6);
-#endif
-    
-    InterruptHandler::hookSIGINT();
-    
     // Can switch host with command line argument
-    string_t hostname = _XPLATSTR("localhost");
+    const char* host = "localhost";
     if (argc >= 2) {
-        hostname = argv[1];
+        host = argv[1];
     }
     
     // If second command line variable is provided, assume port. No checks.
-    string_t port(_XPLATSTR("5003"));
+    int port = 5003;
     if (argc == 3) {
-        port = argv[2];
+        std::stringstream strPort;
+        strPort << argv[2];
+        strPort >> port;
     }
-
-    ostringstream_t oss;
-    oss << _XPLATSTR("http://") << hostname << _XPLATSTR(":") << port;
-    string_t address = oss.str();
 
     // Create the listener and add the supported methods.
-    http_listener listener(address);
-    listener.support(methods::GET, handle_get);
-    listener.support(methods::PUT, handle_put);
-    listener.support(methods::POST, handle_post);
-    listener.support(methods::DEL, handle_delete);
+    Server svr;
+
+    svr.Get("/", handle_post);
+    svr.Put("/", handle_post);
+    svr.Post("/", handle_post);
+    svr.Delete("/", handle_post);
 
     try {
-        listener.open().wait();
-        ucout << _XPLATSTR("Listening for requests at ") << address << std::endl;
+        cout << "Opening server for requests on host " << host << " at port " << port << std::endl;
+#ifdef CPPHTTPLIB_THREAD_POOL_COUNT
+        cout << "Using " << CPPHTTPLIB_THREAD_POOL_COUNT << " threads." << std::endl;
+#else
+        cout << "Using " << std::thread::hardware_concurrency() << " threads." << std::endl;
+#endif
         cout << "Press CTRL+C to exit." << std::endl;
-        InterruptHandler::waitForUserInterrupt();
-        listener.close().wait();
+        if (!svr.listen(host, port)) {
+            std::cerr << "Server stopped in error state" << endl;
+            return EXIT_FAILURE;
+        }
     } catch (const std::exception& e) {
-        cerr << "Hit an error." << std::endl;
-        cerr << "Error message: " << e.what() << std::endl;
+        cerr << "Hit an error." << endl;
+        cerr << "Error message: " << e.what() << endl;
+        return EXIT_FAILURE;
     } catch (...) {
-        cerr << "Hit an error." << std::endl;
+        cerr << "Hit an error." << endl;
+        return EXIT_FAILURE;
     }
     
-    return 0;
+    return EXIT_SUCCESS;
 }

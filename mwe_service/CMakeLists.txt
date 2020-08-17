@@ -5,23 +5,15 @@ set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 
 # Set paths
-
-set(CPPREST ../cpprestsdk)
-set(OPENSSL ../openssl)
 project(mwe_service CXX)
-
-link_directories(${OPENSSL}/)
-link_directories(${CPPREST}/build.release/Release/Binaries)
 
 # use C++11
 set (CMAKE_CXX_STANDARD 11)
 
-# Avoid conflicts between "U" macro in cpprestsdk and Boost
-add_definitions(-D_TURN_OFF_PLATFORM_STRING)
+# Update number of threads
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DCPPHTTPLIB_THREAD_POOL_COUNT=40")
 
 # include directories
-include_directories(${CPPREST}/Release/include/)
-include_directories(${OPENSSL}/include/)
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 # write the exe here
@@ -33,13 +25,8 @@ file(GLOB MWE_SERVICE_SRC ${CMAKE_CURRENT_LIST_DIR}/src/*.cpp)
 add_executable(mwe_service ${MWE_SERVICE_SRC})
 
 target_link_libraries(mwe_service pthread)
-target_link_libraries(mwe_service dl)
-target_link_libraries(mwe_service ssl)
-target_link_libraries(mwe_service crypto)
-target_link_libraries(mwe_service cpprest)
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
-include_directories(${Boost_INCLUDE_DIRS})
 
 include(InstallRequiredSystemLibraries)
 set(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
